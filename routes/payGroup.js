@@ -38,7 +38,7 @@ function formatDateTimeCN(date) {
     return cnDate.toISOString().replace('T', ' ').substring(0, 19);
 }
 
-// 认证中间件（支持 RAM 用户）
+// 认证中间件（支持 RAM 用户）- 仅限管理员访问
 const authMiddleware = async (req, res, next) => {
     const sessionId = req.cookies.sessionId;
     if (!sessionId) {
@@ -46,7 +46,7 @@ const authMiddleware = async (req, res, next) => {
     }
 
     const [sessions] = await db.query(
-        'SELECT s.user_id FROM sessions s WHERE s.session_token = ?',
+        'SELECT s.user_id, s.user_type FROM sessions s WHERE s.session_token = ?',
         [sessionId]
     );
 
@@ -55,10 +55,11 @@ const authMiddleware = async (req, res, next) => {
     }
 
     const sessionUserId = sessions[0].user_id;
+    const sessionUserType = sessions[0].user_type;
     let actualUserId = sessionUserId;
     let ramUser = null;
 
-    // 检查是否是 RAM 用户）3位纯数字）
+    // 检查是否是 RAM 用户（13位纯数字）
     if (/^\d{13}$/.test(sessionUserId)) {
         const [ramUsers] = await db.query(
             'SELECT * FROM user_ram WHERE user_id = ? AND owner_type = ?',
@@ -69,6 +70,20 @@ const authMiddleware = async (req, res, next) => {
             actualUserId = ramUser.owner_id;  // 使用主账户的 user_id
         } else {
             return res.json({ code: -403, msg: '子账户无权访问' });
+        }
+    } else {
+        // 普通用户：必须是管理员
+        if (sessionUserType && sessionUserType !== 'admin') {
+            return res.json({ code: -403, msg: '无权访问管理后台' });
+        }
+        
+        // 验证用户是否是管理员（is_admin = 1）
+        const [users] = await db.query(
+            'SELECT is_admin FROM users WHERE id = ?',
+            [actualUserId]
+        );
+        if (users.length === 0 || users[0].is_admin !== 1) {
+            return res.json({ code: -403, msg: '无权访问管理后台' });
         }
     }
 

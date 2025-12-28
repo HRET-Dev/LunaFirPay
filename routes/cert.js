@@ -10,7 +10,7 @@ const certValidator = require('../utils/certValidator');
 const pluginIndex = require('../plugins/index');
 const db = require('../config/database');
 
-// 认证中间件 - 验证是否已登录（只允许供应商操作）
+// 认证中间件 - 验证是否已登录（只允许管理员操作）
 const authMiddleware = async (req, res, next) => {
   try {
     const sessionId = req.cookies.sessionId;
@@ -28,15 +28,52 @@ const authMiddleware = async (req, res, next) => {
       return res.json({ code: -401, msg: '会话无效' });
     }
 
-    // 只允许管理员操作证书
-    if (sessions[0].user_type !== 'admin') {
-      return res.json({ code: -403, msg: '无权限操作' });
+    const sessionUserId = sessions[0].user_id;
+    const sessionUserType = sessions[0].user_type;
+    let actualUserId = sessionUserId;
+    let ramUser = null;
+
+    // 检查是否是 RAM 用户（13位纯数字）
+    if (/^\d{13}$/.test(sessionUserId)) {
+      const [ramUsers] = await db.query(
+        'SELECT * FROM user_ram WHERE user_id = ? AND owner_type = ?',
+        [sessionUserId, 'admin']
+      );
+      if (ramUsers.length > 0 && ramUsers[0].status === 1) {
+        ramUser = ramUsers[0];
+        actualUserId = ramUser.owner_id;
+        // RAM 用户需要 channel 权限
+        let perms = ramUser.permissions || [];
+        if (typeof perms === 'string') {
+          try { perms = JSON.parse(perms); } catch(e) { perms = []; }
+        }
+        if (!perms.includes('admin') && !perms.includes('channel')) {
+          return res.json({ code: -403, msg: '无权限操作证书' });
+        }
+      } else {
+        return res.json({ code: -403, msg: '子账户无权访问' });
+      }
+    } else {
+      // 普通用户：只允许管理员操作证书
+      if (sessionUserType !== 'admin') {
+        return res.json({ code: -403, msg: '无权限操作' });
+      }
+      
+      // 验证用户是否是管理员（is_admin = 1）
+      const [users] = await db.query(
+        'SELECT is_admin FROM users WHERE id = ?',
+        [actualUserId]
+      );
+      if (users.length === 0 || users[0].is_admin !== 1) {
+        return res.json({ code: -403, msg: '无权限操作' });
+      }
     }
 
     req.user = {
-      user_id: sessions[0].user_id,
-      user_type: sessions[0].user_type
+      user_id: actualUserId,
+      user_type: 'admin'
     };
+    req.ramUser = ramUser;
     next();
   } catch (err) {
     console.error('认证错误:', err);
