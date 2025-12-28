@@ -44,8 +44,8 @@ cd LunaFirPay
 npm install
 
 # 导入数据库
-mysql -u root -p your_database < migrations/20251228021440.sql
-我更建议你在宝塔中导入数据库
+mysql -u root -p your_database < initialization.sql
+我更建议你在宝塔中导入数据库，如果更新程序的话请备份旧数据库，重新运行就是更新数据库字段
 
 # 配置数据库
 cp config.yaml.example config.yaml
