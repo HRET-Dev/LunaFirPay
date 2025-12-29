@@ -205,10 +205,14 @@ router.post('/register', async (req, res) => {
       );
       const defaultPayGroupId = defaultPayGroups.length > 0 ? defaultPayGroups[0].id : null;
       
+      // 检查是否开启自动开通
+      const autoApprove = await systemConfig.getConfig('auto_approve_merchant');
+      const merchantStatus = autoApprove === '1' ? 'active' : 'pending';
+      
       // 创建商户配置（user_id 引用 users.id）
       await db.query(
         'INSERT INTO merchants (user_id, api_key, status, pay_group_id) VALUES (?, ?, ?, ?)',
-        [userId, apiKey, 'pending', defaultPayGroupId]
+        [userId, apiKey, merchantStatus, defaultPayGroupId]
       );
     }
 
@@ -244,7 +248,10 @@ router.post('/register', async (req, res) => {
     }
 
     // 首个用户提示
-    const successMsg = isFirstUser ? '注册成功，您是首个用户，已自动成为管理员' : '注册成功，请等待管理员开通';
+    const autoApproveEnabled = await systemConfig.getConfig('auto_approve_merchant') === '1';
+    const successMsg = isFirstUser 
+      ? '注册成功，您是首个用户，已自动成为管理员' 
+      : (autoApproveEnabled ? '注册成功，账户已自动开通' : '注册成功，请等待管理员开通');
 
     res.json({
       code: 0,

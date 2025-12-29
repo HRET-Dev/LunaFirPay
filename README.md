@@ -75,30 +75,32 @@ server/
 ├── utils/              # 工具函数
 ```
 
-## 🌐 Nginx 配置
+## 🌐 Nginx 伪静态配置
 
 Node.js 默认运行在 `3000` 端口，Nginx 作为反向代理，静态文件由 Nginx 直接服务。
 
 ```nginx
-server {
-    listen 80;
-    server_name pay.example.com;
 
-    # 前端静态文件
-    root /path/to/server/dist;
-    index index.html;
-
-    # API 接口代理到 Node.js
+    # 静态资源缓存（带 hash 的文件可以长期缓存）
+    location /assets/ {
+        add_header Cache-Control "public, immutable";
+        try_files $uri =404;
+    }
+    
+    # API 代理到 Node.js 后端
     location /api/ {
         proxy_pass http://127.0.0.1:3000;
         proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_cache_bypass $http_upgrade;
     }
-
-    # 兼容易支付 API（submit.php / mapi.php / api.php）
+    
+    # 兼容易支付 PHP 路由 - 代理到 Node.js 后端
     location ~ ^/(submit|mapi|api)\.php$ {
         proxy_pass http://127.0.0.1:3000;
         proxy_http_version 1.1;
@@ -107,17 +109,12 @@ server {
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
     }
-
-    # 静态资源（支付图标等）- Nginx 直接服务
-    location /assets/ {
-        alias /path/to/server/dist/assets/;
-    }
-
-    # 前端路由 - SPA 支持
+    
+    # SPA 路由 - 所有前端路由都返回 index.html
     location / {
         try_files $uri $uri/ /index.html;
     }
-}
+    
 ```
 > **💡 提示：** Nginx配置仅作示例，不能直接使用
 

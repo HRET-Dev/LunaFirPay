@@ -19,7 +19,8 @@ router.get('/system/config', requireProviderRamPermission('settings'), async (re
       site_name: allConfig.site_name || '支付平台',
       api_endpoint: allConfig.api_endpoint || '',
       domain_whitelist_enabled: allConfig.domain_whitelist_enabled || '0',
-      user_refund: allConfig.user_refund || '0'
+      user_refund: allConfig.user_refund || '0',
+      auto_approve_merchant: allConfig.auto_approve_merchant || '0'
     };
     
     res.json({ code: 0, data: paymentConfig });
@@ -32,7 +33,7 @@ router.get('/system/config', requireProviderRamPermission('settings'), async (re
 // 更新系统配置
 router.post('/system/config', requireProviderRamPermission('settings'), async (req, res) => {
   try {
-    const { order_name_template, page_order_name, notify_order_name, site_name, api_endpoint, domain_whitelist_enabled, user_refund } = req.body;
+    const { order_name_template, page_order_name, notify_order_name, site_name, api_endpoint, domain_whitelist_enabled, user_refund, auto_approve_merchant } = req.body;
     
     // 更新配置
     if (order_name_template !== undefined) {
@@ -55,6 +56,9 @@ router.post('/system/config', requireProviderRamPermission('settings'), async (r
     }
     if (user_refund !== undefined) {
       await systemConfig.setConfig('user_refund', user_refund, '商户自助退款(0=关闭,1=开启)');
+    }
+    if (auto_approve_merchant !== undefined) {
+      await systemConfig.setConfig('auto_approve_merchant', auto_approve_merchant, '注册商户自动开通(0=需审核,1=自动开通)');
     }
     
     res.json({ code: 0, msg: '保存成功' });
