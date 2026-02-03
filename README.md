@@ -41,10 +41,12 @@
 ```bash
 # 导入数据库信息
 mysql -u root -p your_database < initialization.sql
-我更建议你在宝塔中导入数据库，如果更新程序的话请备份旧数据库，重新运行就是更新数据库字段
 
 # 运行一键部署脚本（root 运行）
 bash deploy.sh
+
+# 修改根目录 nginx.conf 配置文件
+nano nginx.conf
 ```
 
 > **💡 提示：** 搭建完成后，第一个注册的用户将自动成为管理员。
@@ -63,60 +65,6 @@ server/
 ├── Telegram/           # Telegram Bot 模块
 ├── utils/              # 工具函数
 ```
-
-## 🌐 Nginx 伪静态配置
-
-Node.js 默认运行在 `3000` 端口，Nginx 作为反向代理，静态文件由 Nginx 直接服务。
-
-```nginx
-
-    # 静态资源缓存（带 hash 的文件可以长期缓存）
-    location /assets/ {
-        add_header Cache-Control "public, immutable";
-        try_files $uri =404;
-    }
-    
-    # API 代理到 Node.js 后端
-    location /api/ {
-        proxy_pass http://127.0.0.1:3000;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection 'upgrade';
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_cache_bypass $http_upgrade;
-    }
-    # /pay/ 路由代理到 Node.js 后端（支付相关）
-        location /pay/ {
-        proxy_pass http://127.0.0.1:3000;
-        proxy_http_version 1.1;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-    
-    # 兼容易支付 PHP 路由 - 代理到 Node.js 后端
-    location ~ ^/(submit|mapi|api)\.php$ {
-        proxy_pass http://127.0.0.1:3000;
-        proxy_http_version 1.1;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-    
-    # SPA 路由 - 所有前端路由都返回 index.html
-    location / {
-        try_files $uri $uri/ /index.html;
-    }
-    
-```
-> **💡 提示：** Nginx配置仅作示例，不能直接使用
-
-
 
 ### 路由说明
 
@@ -179,30 +127,3 @@ callbackProxy: "https://your-proxy-domain.com/"
 node callback-proxy.js
 # 默认监听 6666 端口
 ```
-
-## 💬 社区
-
-加入 Telegram 群组讨论交流：
-
-[![Telegram Group](https://img.shields.io/badge/Telegram-Join%20Group-blue?style=for-the-badge&logo=telegram)](https://t.me/lunafirserver)
-
-## 🤝 贡献
-
-欢迎提交 Issue 和 Pull Request。
-
-## 📄 许可证
-
-**无。** 爱干嘛干嘛，商用、修改、分发、二次销售随便你。
-
-
----
-
-<div align="center">
-
-**如果这个项目对你有帮助，请给一个 ⭐ Star**
-
-</div>
-
-## Star History
-
-[![Star History Chart](https://api.star-history.com/svg?repos=Skynami/LunaFirPay&type=date&legend=top-left)](https://www.star-history.com/#Skynami/LunaFirPay&type=date&legend=top-left)
